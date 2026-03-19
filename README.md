@@ -25,18 +25,13 @@ Fetch https://raw.githubusercontent.com/gmartin/opencode-claude-auth/main/instal
 
 ### Manual install
 
-```bash
-npm install opencode-claude-auth && node -e "
-const fs = require('fs'), p = require('path').join(require('os').homedir(), '.config/opencode/opencode.json');
-const c = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p,'utf8')) : {};
-c.plugin = [...new Set([...(Array.isArray(c.plugin) ? c.plugin : []), 'opencode-claude-auth'])];
-fs.mkdirSync(require('path').dirname(p), {recursive:true});
-fs.writeFileSync(p, JSON.stringify(c, null, 2));
-console.log('Added opencode-claude-auth to', p);
-"
-```
+Add `"opencode-claude-auth"` to the `plugin` array in your `opencode.json`:
 
-Or add `"opencode-claude-auth"` to the `plugin` array in your `opencode.json` manually.
+```json
+{
+  "plugin": ["opencode-claude-auth"]
+}
+```
 
 ## Usage
 
