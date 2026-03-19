@@ -42,15 +42,13 @@ Then add to your `opencode.json`:
 }
 ```
 
-### AI-assisted install
+### Install with AI
 
-If you're using an AI coding tool (Claude Code, Cursor, etc.), point it at the install guide:
+Paste this into your AI agent (Claude Code, Cursor, Copilot, etc.):
 
 ```
-Read node_modules/opencode-claude-auth/installation.md and follow the steps
+Fetch https://raw.githubusercontent.com/gmartin/opencode-claude-auth/main/installation.md and follow every step exactly as written.
 ```
-
-Or paste the URL: `https://github.com/gmartin/opencode-claude-auth/blob/main/installation.md`
 
 ## Usage
 
