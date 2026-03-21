@@ -18,8 +18,6 @@ export interface ClaudeAccount {
 
 const PRIMARY_SERVICE = "Claude Code-credentials"
 
-// Cache the dump-keychain output for the lifetime of the process so that
-// refreshAccountsList() calls don't repeatedly shell out to security.
 let cachedKeychainDump: string | null = null
 
 function parseCredentials(raw: string): ClaudeCredentials | null {
