@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { existsSync, writeFileSync, mkdirSync, readFileSync, rmSync } from "node:fs"
 import { mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, dirname } from "node:path"
 import { before, describe, it } from "node:test"
 import { pathToFileURL } from "node:url"
 
@@ -196,7 +196,7 @@ const realFs = {
   readFileSync: (p: string, _enc: string) => readFileSync(p, "utf-8"),
   writeFileSync: (p: string, data: string, _enc: string) => writeFileSync(p, data, "utf-8"),
   mkdirSync: (p: string, opts: object) => mkdirSync(p, opts as Parameters<typeof mkdirSync>[1]),
-  dirname: (p: string) => { const parts = p.split("/"); parts.pop(); return parts.join("/") || "/" },
+  dirname: (p: string) => dirname(p),
 }
 
 let helpers: typeof import("./index.ts")

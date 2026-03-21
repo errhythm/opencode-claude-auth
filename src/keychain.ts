@@ -18,6 +18,10 @@ export interface ClaudeAccount {
 
 const PRIMARY_SERVICE = "Claude Code-credentials"
 
+// Cache the dump-keychain output for the lifetime of the process so that
+// refreshAccountsList() calls don't repeatedly shell out to security.
+let cachedKeychainDump: string | null = null
+
 function parseCredentials(raw: string): ClaudeCredentials | null {
   let parsed: unknown
   try {
@@ -95,23 +99,25 @@ function readKeychainService(serviceName: string): string | null {
 
 function listClaudeKeychainServices(): string[] {
   try {
-    const output = execSync("security dump-keychain", {
-      timeout: 5000,
-      encoding: "utf-8",
-    })
+    if (!cachedKeychainDump) {
+      cachedKeychainDump = execSync("security dump-keychain", {
+        timeout: 5000,
+        encoding: "utf-8",
+      })
+    }
 
     const services: string[] = []
     const seen = new Set<string>()
 
     const re = /"Claude Code-credentials(?:-[0-9a-f]+)?"/g
-    let m = re.exec(output)
+    let m = re.exec(cachedKeychainDump)
     while (m !== null) {
       const svc = m[0].slice(1, -1)
       if (!seen.has(svc)) {
         seen.add(svc)
         services.push(svc)
       }
-      m = re.exec(output)
+      m = re.exec(cachedKeychainDump)
     }
 
     const ordered: string[] = []
