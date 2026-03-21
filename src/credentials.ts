@@ -8,12 +8,76 @@ import {
 } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
-import { type ClaudeCredentials, readClaudeCredentials } from "./keychain.js"
+import { readAllClaudeAccounts, refreshAccount, type ClaudeCredentials, type ClaudeAccount } from "./keychain.js"
+import { resetExcludedBetas } from "./betas.js"
+
+export type { ClaudeCredentials } from "./keychain.js"
+export type { ClaudeAccount } from "./keychain.js"
 
 const CREDENTIAL_CACHE_TTL_MS = 30_000
 
-let cachedCredentials: ClaudeCredentials | null = null
-let cachedCredentialsAt = 0
+const accountCacheMap = new Map<string, { creds: ClaudeCredentials; cachedAt: number }>()
+let activeAccountSource: string | null = null
+let allAccounts: ClaudeAccount[] = []
+
+export function initAccounts(accounts: ClaudeAccount[]): void {
+  allAccounts = accounts
+}
+
+export function getAccounts(): ClaudeAccount[] {
+  return allAccounts
+}
+
+export function setActiveAccountSource(source: string): void {
+  activeAccountSource = source
+  accountCacheMap.delete(source)
+  resetExcludedBetas()
+}
+
+export function refreshAccountsList(): ClaudeAccount[] {
+  try {
+    allAccounts = readAllClaudeAccounts()
+  } catch {
+    // Non-fatal: keep the existing list if re-scan fails
+  }
+  return allAccounts
+}
+
+function getActiveAccount(): ClaudeAccount | null {
+  if (allAccounts.length === 0) return null
+  if (activeAccountSource) {
+    const found = allAccounts.find((a) => a.source === activeAccountSource)
+    if (found) return found
+  }
+  return allAccounts[0]
+}
+
+function getAccountStateFile(): string {
+  return join(homedir(), ".local", "share", "opencode", "claude-account-source.txt")
+}
+
+export function loadPersistedAccountSource(): string | null {
+  try {
+    const path = getAccountStateFile()
+    if (existsSync(path)) {
+      return readFileSync(path, "utf-8").trim() || null
+    }
+  } catch {
+    // ignore
+  }
+  return null
+}
+
+export function saveAccountSource(source: string): void {
+  try {
+    const path = getAccountStateFile()
+    const dir = dirname(path)
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+    writeFileSync(path, source, "utf-8")
+  } catch {
+    // Non-fatal
+  }
+}
 
 function getAuthJsonPaths(): string[] {
   const xdgPath = join(homedir(), ".local", "share", "opencode", "auth.json")
@@ -80,43 +144,39 @@ function refreshViaCli(): void {
   }
 }
 
-export function refreshIfNeeded(): ClaudeCredentials | null {
-  let creds = readClaudeCredentials()
-  if (creds && creds.expiresAt > Date.now() + 60_000) {
-    return creds
-  }
+export function refreshIfNeeded(account?: ClaudeAccount): ClaudeCredentials | null {
+  const target = account ?? getActiveAccount()
+  if (!target) return null
+
+  const creds = target.credentials
+  if (creds.expiresAt > Date.now() + 60_000) return creds
+
   refreshViaCli()
-  creds = readClaudeCredentials()
-  if (creds && creds.expiresAt > Date.now() + 60_000) {
-    return creds
-  }
+  const refreshed = refreshAccount(target.source)
+  if (refreshed && refreshed.expiresAt > Date.now() + 60_000) return refreshed
   return null
 }
 
-function isCredentialUsable(creds: ClaudeCredentials): boolean {
-  return creds.expiresAt > Date.now() + 60_000
-}
-
 export function getCachedCredentials(): ClaudeCredentials | null {
+  const account = getActiveAccount()
+  if (!account) return null
+
   const now = Date.now()
+  const cached = accountCacheMap.get(account.source)
   if (
-    cachedCredentials &&
-    now - cachedCredentialsAt < CREDENTIAL_CACHE_TTL_MS &&
-    isCredentialUsable(cachedCredentials)
+    cached &&
+    now - cached.cachedAt < CREDENTIAL_CACHE_TTL_MS &&
+    cached.creds.expiresAt > now + 60_000
   ) {
-    return cachedCredentials
+    return cached.creds
   }
 
-  const latest = refreshIfNeeded()
-  if (!latest) {
-    cachedCredentials = null
-    cachedCredentialsAt = 0
+  const fresh = refreshIfNeeded(account)
+  if (!fresh) {
+    accountCacheMap.delete(account.source)
     return null
   }
 
-  cachedCredentials = latest
-  cachedCredentialsAt = now
-  return latest
+  accountCacheMap.set(account.source, { creds: fresh, cachedAt: now })
+  return fresh
 }
-
-export type { ClaudeCredentials } from "./keychain.js"

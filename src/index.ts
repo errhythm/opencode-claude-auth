@@ -1,4 +1,5 @@
 import type { Plugin } from "@opencode-ai/plugin"
+import { readAllClaudeAccounts, type ClaudeAccount } from "./keychain.js"
 import {
   addExcludedBeta,
   getExcludedBetas,
@@ -7,14 +8,17 @@ import {
   isLongContextError,
   LONG_CONTEXT_BETAS,
 } from "./betas.js"
-import {
-  type ClaudeCredentials,
-  getCachedCredentials,
-  refreshIfNeeded,
-  syncAuthJson,
-} from "./credentials.js"
-import { readClaudeCredentials } from "./keychain.js"
 import { transformBody, transformResponseStream } from "./transforms.js"
+import {
+  getCachedCredentials,
+  syncAuthJson,
+  initAccounts,
+  setActiveAccountSource,
+  loadPersistedAccountSource,
+  saveAccountSource,
+  refreshAccountsList,
+  type ClaudeCredentials,
+} from "./credentials.js"
 
 export {
   addExcludedBeta,
@@ -24,17 +28,18 @@ export {
   isLongContextError,
   LONG_CONTEXT_BETAS,
 } from "./betas.js"
-export {
-  type ClaudeCredentials,
-  getCachedCredentials,
-  refreshIfNeeded,
-  syncAuthJson,
-} from "./credentials.js"
+export { resetExcludedBetas } from "./betas.js"
 export {
   stripToolPrefix,
   transformBody,
   transformResponseStream,
 } from "./transforms.js"
+export {
+  getCachedCredentials,
+  syncAuthJson,
+  refreshAccountsList,
+  type ClaudeCredentials,
+} from "./credentials.js"
 
 const SYSTEM_IDENTITY_PREFIX =
   "You are Claude Code, Anthropic's official CLI for Claude."
@@ -136,9 +141,9 @@ export function getBillingHeader(modelId: string): string {
 const SYNC_INTERVAL = 5 * 60 * 1000 // 5 minutes
 
 const plugin: Plugin = async () => {
-  let creds: ClaudeCredentials | null = null
+  let accounts: ClaudeAccount[] = []
   try {
-    creds = readClaudeCredentials()
+    accounts = readAllClaudeAccounts()
   } catch (err) {
     console.warn(
       "opencode-claude-auth: Failed to read Claude Code credentials:",
@@ -146,7 +151,8 @@ const plugin: Plugin = async () => {
     )
     return {}
   }
-  if (!creds) {
+
+  if (accounts.length === 0) {
     console.warn(
       "opencode-claude-auth: No Claude Code credentials found. " +
         "Plugin disabled. Run `claude` to authenticate.",
@@ -154,9 +160,18 @@ const plugin: Plugin = async () => {
     return {}
   }
 
-  const freshCreds = getCachedCredentials()
-  if (freshCreds) {
-    syncAuthJson(freshCreds)
+  initAccounts(accounts)
+
+  const persistedSource = loadPersistedAccountSource()
+  const defaultAccount =
+    (persistedSource && accounts.find((a) => a.source === persistedSource)) ||
+    accounts[0]
+
+  setActiveAccountSource(defaultAccount.source)
+
+  const initialCreds = getCachedCredentials()
+  if (initialCreds) {
+    syncAuthJson(initialCreds)
   } else {
     console.warn(
       "opencode-claude-auth: Claude credentials are expired and could not be refreshed via Claude CLI.",
@@ -166,10 +181,8 @@ const plugin: Plugin = async () => {
   // Keep auth.json synced, refreshing via CLI if token is near expiry
   const syncTimer = setInterval(() => {
     try {
-      const fresh = refreshIfNeeded()
-      if (fresh) {
-        syncAuthJson(fresh)
-      }
+      const fresh = getCachedCredentials()
+      if (fresh) syncAuthJson(fresh)
     } catch {
       // Non-fatal
     }
@@ -293,9 +306,58 @@ const plugin: Plugin = async () => {
       },
       methods: [
         {
-          provider: "anthropic",
-          label: "Manually enter API Key",
-          type: "api",
+          type: "oauth",
+          label: "Switch Claude Code account",
+
+          get prompts() {
+            const currentAccounts = refreshAccountsList()
+            const currentSource = loadPersistedAccountSource() ?? defaultAccount.source
+            if (currentAccounts.length <= 1) return []
+            return [
+              {
+                type: "select" as const,
+                key: "account",
+                message: "Select which Claude Code account to use:",
+                options: currentAccounts.map((a) => ({
+                  label: a.label,
+                  value: a.source,
+                  hint: a.source === currentSource ? `${a.source} (active)` : a.source,
+                })),
+              },
+            ]
+          },
+
+          async authorize(inputs) {
+            const latestAccounts = refreshAccountsList()
+
+            const source = inputs?.account ?? latestAccounts[0]?.source ?? accounts[0].source
+            const chosen =
+              latestAccounts.find((a) => a.source === source) ??
+              accounts.find((a) => a.source === source) ??
+              latestAccounts[0] ??
+              accounts[0]
+
+            setActiveAccountSource(chosen.source)
+            const creds = getCachedCredentials() ?? chosen.credentials
+
+            syncAuthJson(creds)
+            saveAccountSource(chosen.source)
+
+            return {
+              url: "",
+              instructions: `Using ${chosen.label} — credentials loaded from macOS Keychain.`,
+              method: "auto",
+              async callback() {
+                return {
+                  type: "success",
+                  provider: "anthropic",
+                  access: creds.accessToken,
+                  refresh: creds.refreshToken,
+                  expires: creds.expiresAt,
+                }
+              },
+            }
+          },
         },
       ],
     },

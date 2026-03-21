@@ -44,6 +44,11 @@ export function addExcludedBeta(modelId: string, beta: string): void {
   excludedBetas.set(modelId, existing)
 }
 
+export function resetExcludedBetas(): void {
+  excludedBetas.clear()
+  lastModelId = undefined
+}
+
 export function isLongContextError(responseBody: string): boolean {
   return (
     responseBody.includes(
