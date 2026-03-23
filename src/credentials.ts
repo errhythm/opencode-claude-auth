@@ -35,11 +35,7 @@ export function setActiveAccountSource(source: string): void {
 }
 
 export function refreshAccountsList(): ClaudeAccount[] {
-  try {
-    allAccounts = readAllClaudeAccounts()
-  } catch {
-    // Non-fatal: keep the existing list if re-scan fails
-  }
+  allAccounts = readAllClaudeAccounts()
   return allAccounts
 }
 

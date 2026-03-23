@@ -343,9 +343,13 @@ const plugin: Plugin = async () => {
             syncAuthJson(creds)
             saveAccountSource(chosen.source)
 
+            const sourceDescription = chosen.source === "file"
+              ? "credentials file (~/.claude/.credentials.json)"
+              : "macOS Keychain"
+
             return {
               url: "",
-              instructions: `Using ${chosen.label} — credentials loaded from macOS Keychain.`,
+              instructions: `Using ${chosen.label} — credentials loaded from ${sourceDescription}.`,
               method: "auto",
               async callback() {
                 return {
