@@ -52,7 +52,10 @@ function parseCredentials(raw: string): ClaudeCredentials | null {
     accessToken: creds.accessToken,
     refreshToken: creds.refreshToken,
     expiresAt: creds.expiresAt,
-    subscriptionType: typeof creds.subscriptionType === "string" ? creds.subscriptionType : undefined,
+    subscriptionType:
+      typeof creds.subscriptionType === "string"
+        ? creds.subscriptionType
+        : undefined,
   }
 }
 
@@ -138,7 +141,8 @@ function readCredentialsFile(): ClaudeCredentials | null {
 export function buildAccountLabels(credsList: ClaudeCredentials[]): string[] {
   const baseLabels = credsList.map((c) => {
     if (c.subscriptionType) {
-      const tier = c.subscriptionType.charAt(0).toUpperCase() + c.subscriptionType.slice(1)
+      const tier =
+        c.subscriptionType.charAt(0).toUpperCase() + c.subscriptionType.slice(1)
       return `Claude ${tier}`
     }
     return "Claude"
@@ -165,7 +169,8 @@ export function readAllClaudeAccounts(): ClaudeAccount[] {
   }
 
   const services = listClaudeKeychainServices()
-  const rawAccounts: Array<{ source: string; credentials: ClaudeCredentials }> = []
+  const rawAccounts: Array<{ source: string; credentials: ClaudeCredentials }> =
+    []
 
   for (const svc of services) {
     const raw = readKeychainService(svc)
@@ -181,7 +186,11 @@ export function readAllClaudeAccounts(): ClaudeAccount[] {
   }
 
   const labels = buildAccountLabels(rawAccounts.map((a) => a.credentials))
-  return rawAccounts.map((a, i) => ({ label: labels[i], source: a.source, credentials: a.credentials }))
+  return rawAccounts.map((a, i) => ({
+    label: labels[i],
+    source: a.source,
+    credentials: a.credentials,
+  }))
 }
 
 export function refreshAccount(source: string): ClaudeCredentials | null {

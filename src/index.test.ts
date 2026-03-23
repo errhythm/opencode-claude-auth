@@ -1,5 +1,11 @@
 import assert from "node:assert/strict"
-import { existsSync, writeFileSync, mkdirSync, readFileSync, rmSync } from "node:fs"
+import {
+  existsSync,
+  writeFileSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+} from "node:fs"
 import { mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, dirname } from "node:path"
@@ -31,7 +37,10 @@ interface Account {
 }
 
 // Mirrors authorize()'s account-resolution logic
-function resolveAccount(accounts: Account[], selectedSource: string | undefined): Account {
+function resolveAccount(
+  accounts: Account[],
+  selectedSource: string | undefined,
+): Account {
   const found = accounts.find((a) => a.source === selectedSource)
   return found ?? accounts[0]
 }
@@ -83,7 +92,10 @@ function syncToPath(
 }
 
 // Mirrors refreshIfNeeded expiry logic
-function refreshIfNeeded(creds: ClaudeCredentials, nowMs: number): "fresh" | "expired" {
+function refreshIfNeeded(
+  creds: ClaudeCredentials,
+  nowMs: number,
+): "fresh" | "expired" {
   return creds.expiresAt > nowMs + 60_000 ? "fresh" : "expired"
 }
 
@@ -184,18 +196,37 @@ function makeCreds(overrides?: Partial<ClaudeCredentials>): ClaudeCredentials {
 }
 
 const accounts: Account[] = [
-  { label: "Account 1", source: "Claude Code-credentials", credentials: makeCreds({ accessToken: "at-1" }) },
-  { label: "Account 2", source: "Claude Code-credentials-b28bbb7c", credentials: makeCreds({ accessToken: "at-2" }) },
-  { label: "Account 3", source: "Claude Code-credentials-abc123", credentials: makeCreds({ accessToken: "at-3" }) },
+  {
+    label: "Account 1",
+    source: "Claude Code-credentials",
+    credentials: makeCreds({ accessToken: "at-1" }),
+  },
+  {
+    label: "Account 2",
+    source: "Claude Code-credentials-b28bbb7c",
+    credentials: makeCreds({ accessToken: "at-2" }),
+  },
+  {
+    label: "Account 3",
+    source: "Claude Code-credentials-abc123",
+    credentials: makeCreds({ accessToken: "at-3" }),
+  },
 ]
 
 const realFs = {
   existsSync: (p: string) => {
-    try { readFileSync(p); return true } catch { return false }
+    try {
+      readFileSync(p)
+      return true
+    } catch {
+      return false
+    }
   },
   readFileSync: (p: string, _enc: string) => readFileSync(p, "utf-8"),
-  writeFileSync: (p: string, data: string, _enc: string) => writeFileSync(p, data, "utf-8"),
-  mkdirSync: (p: string, opts: object) => mkdirSync(p, opts as Parameters<typeof mkdirSync>[1]),
+  writeFileSync: (p: string, data: string, _enc: string) =>
+    writeFileSync(p, data, "utf-8"),
+  mkdirSync: (p: string, opts: object) =>
+    mkdirSync(p, opts as Parameters<typeof mkdirSync>[1]),
   dirname: (p: string) => dirname(p),
 }
 
@@ -575,23 +606,42 @@ describe("auth hook — account resolution", () => {
   })
 
   it("selects Account 2 by its source key", () => {
-    assert.equal(resolveAccount(accounts, "Claude Code-credentials-b28bbb7c").label, "Account 2")
+    assert.equal(
+      resolveAccount(accounts, "Claude Code-credentials-b28bbb7c").label,
+      "Account 2",
+    )
   })
 
   it("selects Account 3 by its source key", () => {
-    assert.equal(resolveAccount(accounts, "Claude Code-credentials-abc123").label, "Account 3")
+    assert.equal(
+      resolveAccount(accounts, "Claude Code-credentials-abc123").label,
+      "Account 3",
+    )
   })
 
   it("falls back to Account 1 when source doesn't match any account", () => {
-    assert.equal(resolveAccount(accounts, "Claude Code-credentials-unknown").label, "Account 1")
+    assert.equal(
+      resolveAccount(accounts, "Claude Code-credentials-unknown").label,
+      "Account 1",
+    )
   })
 
   it("returns the correct credentials for the resolved account", () => {
-    assert.equal(resolveAccount(accounts, "Claude Code-credentials-b28bbb7c").credentials.accessToken, "at-2")
+    assert.equal(
+      resolveAccount(accounts, "Claude Code-credentials-b28bbb7c").credentials
+        .accessToken,
+      "at-2",
+    )
   })
 
   it("works correctly when only one account exists", () => {
-    const single = [{ label: "Account 1", source: "Claude Code-credentials", credentials: makeCreds() }]
+    const single = [
+      {
+        label: "Account 1",
+        source: "Claude Code-credentials",
+        credentials: makeCreds(),
+      },
+    ]
     assert.equal(resolveAccount(single, undefined).label, "Account 1")
     assert.equal(resolveAccount(single, "nonexistent").label, "Account 1")
   })
@@ -611,7 +661,10 @@ describe("auth hook — select prompt options", () => {
   })
 
   it("marks the active account with (active) in its hint", () => {
-    const options = buildSelectOptions(accounts, "Claude Code-credentials-b28bbb7c")
+    const options = buildSelectOptions(
+      accounts,
+      "Claude Code-credentials-b28bbb7c",
+    )
     assert.ok(options[1].hint.includes("(active)"))
     assert.ok(!options[0].hint.includes("(active)"))
     assert.ok(!options[2].hint.includes("(active)"))
@@ -619,12 +672,16 @@ describe("auth hook — select prompt options", () => {
 
   it("shows no prompts when only one account exists", () => {
     const single = [accounts[0]]
-    const prompts = single.length > 1 ? buildSelectOptions(single, single[0].source) : []
+    const prompts =
+      single.length > 1 ? buildSelectOptions(single, single[0].source) : []
     assert.deepEqual(prompts, [])
   })
 
   it("shows prompts when multiple accounts exist", () => {
-    const prompts = accounts.length > 1 ? buildSelectOptions(accounts, accounts[0].source) : []
+    const prompts =
+      accounts.length > 1
+        ? buildSelectOptions(accounts, accounts[0].source)
+        : []
     assert.equal(prompts.length, 3)
   })
 })
@@ -639,29 +696,54 @@ describe("auth hook — authorize callback", () => {
   })
 
   it("instructions mention the chosen account label", () => {
-    assert.ok(buildAuthorizeResult(accounts[1]).instructions.includes("Account 2"))
+    assert.ok(
+      buildAuthorizeResult(accounts[1]).instructions.includes("Account 2"),
+    )
   })
 
   it("callback returns type: success", async () => {
-    assert.equal((await buildAuthorizeResult(accounts[0]).callback()).type, "success")
+    assert.equal(
+      (await buildAuthorizeResult(accounts[0]).callback()).type,
+      "success",
+    )
   })
 
   it("callback returns provider: anthropic", async () => {
-    assert.equal((await buildAuthorizeResult(accounts[0]).callback()).provider, "anthropic")
+    assert.equal(
+      (await buildAuthorizeResult(accounts[0]).callback()).provider,
+      "anthropic",
+    )
   })
 
   it("callback returns the account's access token", async () => {
-    assert.equal((await buildAuthorizeResult(accounts[1]).callback()).access, "at-2")
+    assert.equal(
+      (await buildAuthorizeResult(accounts[1]).callback()).access,
+      "at-2",
+    )
   })
 
   it("callback returns the account's refresh token", async () => {
-    const account = { label: "Account 1", source: "Claude Code-credentials", credentials: makeCreds({ refreshToken: "rt-specific" }) }
-    assert.equal((await buildAuthorizeResult(account).callback()).refresh, "rt-specific")
+    const account = {
+      label: "Account 1",
+      source: "Claude Code-credentials",
+      credentials: makeCreds({ refreshToken: "rt-specific" }),
+    }
+    assert.equal(
+      (await buildAuthorizeResult(account).callback()).refresh,
+      "rt-specific",
+    )
   })
 
   it("callback returns the account's expiry timestamp", async () => {
-    const account = { label: "Account 1", source: "Claude Code-credentials", credentials: makeCreds({ expiresAt: 1700000000000 }) }
-    assert.equal((await buildAuthorizeResult(account).callback()).expires, 1700000000000)
+    const account = {
+      label: "Account 1",
+      source: "Claude Code-credentials",
+      credentials: makeCreds({ expiresAt: 1700000000000 }),
+    }
+    assert.equal(
+      (await buildAuthorizeResult(account).callback()).expires,
+      1700000000000,
+    )
   })
 })
 
@@ -671,17 +753,32 @@ describe("syncToPath", () => {
   it("writes anthropic credentials to auth.json", () => {
     mkdirSync(tmp, { recursive: true })
     const authPath = join(tmp, "auth.json")
-    const creds = makeCreds({ accessToken: "at-write", refreshToken: "rt-write", expiresAt: 1700000000000 })
+    const creds = makeCreds({
+      accessToken: "at-write",
+      refreshToken: "rt-write",
+      expiresAt: 1700000000000,
+    })
     syncToPath(authPath, creds, realFs)
     const written = JSON.parse(readFileSync(authPath, "utf-8"))
-    assert.deepEqual(written.anthropic, { type: "oauth", access: "at-write", refresh: "rt-write", expires: 1700000000000 })
+    assert.deepEqual(written.anthropic, {
+      type: "oauth",
+      access: "at-write",
+      refresh: "rt-write",
+      expires: 1700000000000,
+    })
     rmSync(tmp, { recursive: true, force: true })
   })
 
   it("preserves other providers already in auth.json", () => {
     mkdirSync(tmp, { recursive: true })
     const authPath = join(tmp, "auth.json")
-    writeFileSync(authPath, JSON.stringify({ "github-copilot": { type: "oauth", access: "gh-token" } }), "utf-8")
+    writeFileSync(
+      authPath,
+      JSON.stringify({
+        "github-copilot": { type: "oauth", access: "gh-token" },
+      }),
+      "utf-8",
+    )
     syncToPath(authPath, makeCreds(), realFs)
     const written = JSON.parse(readFileSync(authPath, "utf-8"))
     assert.ok(written["github-copilot"])
@@ -726,8 +823,14 @@ function loadPersistedAccountSourceFrom(stateFile: string): string | null {
   return null
 }
 
-function resolveStartupAccount(accounts: Account[], persistedSource: string | null): Account {
-  return (persistedSource && accounts.find((a) => a.source === persistedSource)) || accounts[0]
+function resolveStartupAccount(
+  accounts: Account[],
+  persistedSource: string | null,
+): Account {
+  return (
+    (persistedSource && accounts.find((a) => a.source === persistedSource)) ||
+    accounts[0]
+  )
 }
 
 describe("account persistence — saveAccountSource / loadPersistedAccountSource", () => {
@@ -735,20 +838,30 @@ describe("account persistence — saveAccountSource / loadPersistedAccountSource
   const stateFile = join(tmp, "claude-account-source.txt")
 
   it("returns null when the state file does not exist", () => {
-    try { rmSync(stateFile, { force: true }) } catch { /* ignore */ }
+    try {
+      rmSync(stateFile, { force: true })
+    } catch {
+      /* ignore */
+    }
     assert.equal(loadPersistedAccountSourceFrom(stateFile), null)
   })
 
   it("saves and loads the account source correctly", () => {
     saveAccountSourceTo(stateFile, "Claude Code-credentials-b28bbb7c")
-    assert.equal(loadPersistedAccountSourceFrom(stateFile), "Claude Code-credentials-b28bbb7c")
+    assert.equal(
+      loadPersistedAccountSourceFrom(stateFile),
+      "Claude Code-credentials-b28bbb7c",
+    )
     rmSync(tmp, { recursive: true, force: true })
   })
 
   it("overwrites a previously saved source", () => {
     saveAccountSourceTo(stateFile, "Claude Code-credentials")
     saveAccountSourceTo(stateFile, "Claude Code-credentials-abc123")
-    assert.equal(loadPersistedAccountSourceFrom(stateFile), "Claude Code-credentials-abc123")
+    assert.equal(
+      loadPersistedAccountSourceFrom(stateFile),
+      "Claude Code-credentials-abc123",
+    )
     rmSync(tmp, { recursive: true, force: true })
   })
 
@@ -766,19 +879,32 @@ describe("startup account selection — uses persisted source", () => {
   })
 
   it("restores Account 2 from persisted source", () => {
-    assert.equal(resolveStartupAccount(accounts, "Claude Code-credentials-b28bbb7c").label, "Account 2")
+    assert.equal(
+      resolveStartupAccount(accounts, "Claude Code-credentials-b28bbb7c").label,
+      "Account 2",
+    )
   })
 
   it("restores Account 3 from persisted source", () => {
-    assert.equal(resolveStartupAccount(accounts, "Claude Code-credentials-abc123").label, "Account 3")
+    assert.equal(
+      resolveStartupAccount(accounts, "Claude Code-credentials-abc123").label,
+      "Account 3",
+    )
   })
 
   it("falls back to Account 1 when the persisted source no longer exists", () => {
-    assert.equal(resolveStartupAccount(accounts, "Claude Code-credentials-gone").label, "Account 1")
+    assert.equal(
+      resolveStartupAccount(accounts, "Claude Code-credentials-gone").label,
+      "Account 1",
+    )
   })
 
   it("restores correct credentials for the persisted account", () => {
-    assert.equal(resolveStartupAccount(accounts, "Claude Code-credentials-b28bbb7c").credentials.accessToken, "at-2")
+    assert.equal(
+      resolveStartupAccount(accounts, "Claude Code-credentials-b28bbb7c")
+        .credentials.accessToken,
+      "at-2",
+    )
   })
 })
 
@@ -796,7 +922,10 @@ describe("authorize() — immediate syncAuthJson + saveAccountSource", () => {
 
     const written = JSON.parse(readFileSync(authPath, "utf-8"))
     assert.equal(written.anthropic.access, "at-2")
-    assert.equal(loadPersistedAccountSourceFrom(stateFile), "Claude Code-credentials-b28bbb7c")
+    assert.equal(
+      loadPersistedAccountSourceFrom(stateFile),
+      "Claude Code-credentials-b28bbb7c",
+    )
 
     rmSync(tmp, { recursive: true, force: true })
   })
@@ -807,7 +936,10 @@ describe("authorize() — immediate syncAuthJson + saveAccountSource", () => {
 
     saveAccountSourceTo(stateFile, "Claude Code-credentials-abc123")
 
-    const restored = resolveStartupAccount(accounts, loadPersistedAccountSourceFrom(stateFile))
+    const restored = resolveStartupAccount(
+      accounts,
+      loadPersistedAccountSourceFrom(stateFile),
+    )
     assert.equal(restored.label, "Account 3")
     assert.equal(restored.credentials.accessToken, "at-3")
 
@@ -817,24 +949,45 @@ describe("authorize() — immediate syncAuthJson + saveAccountSource", () => {
 
 describe("refreshIfNeeded — token expiry", () => {
   it("returns fresh when token expires more than 60s from now", () => {
-    assert.equal(refreshIfNeeded(makeCreds({ expiresAt: Date.now() + 120_000 }), Date.now()), "fresh")
+    assert.equal(
+      refreshIfNeeded(
+        makeCreds({ expiresAt: Date.now() + 120_000 }),
+        Date.now(),
+      ),
+      "fresh",
+    )
   })
 
   it("returns expired when token expires in less than 60s", () => {
-    assert.equal(refreshIfNeeded(makeCreds({ expiresAt: Date.now() + 30_000 }), Date.now()), "expired")
+    assert.equal(
+      refreshIfNeeded(
+        makeCreds({ expiresAt: Date.now() + 30_000 }),
+        Date.now(),
+      ),
+      "expired",
+    )
   })
 
   it("returns expired when token is already past expiry", () => {
-    assert.equal(refreshIfNeeded(makeCreds({ expiresAt: Date.now() - 1000 }), Date.now()), "expired")
+    assert.equal(
+      refreshIfNeeded(makeCreds({ expiresAt: Date.now() - 1000 }), Date.now()),
+      "expired",
+    )
   })
 
   it("returns expired when token expires exactly at the 60s boundary", () => {
     const now = Date.now()
-    assert.equal(refreshIfNeeded(makeCreds({ expiresAt: now + 60_000 }), now), "expired")
+    assert.equal(
+      refreshIfNeeded(makeCreds({ expiresAt: now + 60_000 }), now),
+      "expired",
+    )
   })
 
   it("returns fresh when token expires exactly 1ms past the 60s boundary", () => {
     const now = Date.now()
-    assert.equal(refreshIfNeeded(makeCreds({ expiresAt: now + 60_001 }), now), "fresh")
+    assert.equal(
+      refreshIfNeeded(makeCreds({ expiresAt: now + 60_001 }), now),
+      "fresh",
+    )
   })
 })

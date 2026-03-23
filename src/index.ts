@@ -311,7 +311,8 @@ const plugin: Plugin = async () => {
 
           get prompts() {
             const currentAccounts = refreshAccountsList()
-            const currentSource = loadPersistedAccountSource() ?? defaultAccount.source
+            const currentSource =
+              loadPersistedAccountSource() ?? defaultAccount.source
             if (currentAccounts.length <= 1) return []
             return [
               {
@@ -321,7 +322,10 @@ const plugin: Plugin = async () => {
                 options: currentAccounts.map((a) => ({
                   label: a.label,
                   value: a.source,
-                  hint: a.source === currentSource ? `${a.source} (active)` : a.source,
+                  hint:
+                    a.source === currentSource
+                      ? `${a.source} (active)`
+                      : a.source,
                 })),
               },
             ]
@@ -330,7 +334,8 @@ const plugin: Plugin = async () => {
           async authorize(inputs) {
             const latestAccounts = refreshAccountsList()
 
-            const source = inputs?.account ?? latestAccounts[0]?.source ?? accounts[0].source
+            const source =
+              inputs?.account ?? latestAccounts[0]?.source ?? accounts[0].source
             const chosen =
               latestAccounts.find((a) => a.source === source) ??
               accounts.find((a) => a.source === source) ??
@@ -343,9 +348,10 @@ const plugin: Plugin = async () => {
             syncAuthJson(creds)
             saveAccountSource(chosen.source)
 
-            const sourceDescription = chosen.source === "file"
-              ? "credentials file (~/.claude/.credentials.json)"
-              : "macOS Keychain"
+            const sourceDescription =
+              chosen.source === "file"
+                ? "credentials file (~/.claude/.credentials.json)"
+                : "macOS Keychain"
 
             return {
               url: "",

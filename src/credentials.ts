@@ -8,7 +8,12 @@ import {
 } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
-import { readAllClaudeAccounts, refreshAccount, type ClaudeCredentials, type ClaudeAccount } from "./keychain.js"
+import {
+  readAllClaudeAccounts,
+  refreshAccount,
+  type ClaudeCredentials,
+  type ClaudeAccount,
+} from "./keychain.js"
 import { resetExcludedBetas } from "./betas.js"
 
 export type { ClaudeCredentials } from "./keychain.js"
@@ -16,7 +21,10 @@ export type { ClaudeAccount } from "./keychain.js"
 
 const CREDENTIAL_CACHE_TTL_MS = 30_000
 
-const accountCacheMap = new Map<string, { creds: ClaudeCredentials; cachedAt: number }>()
+const accountCacheMap = new Map<
+  string,
+  { creds: ClaudeCredentials; cachedAt: number }
+>()
 let activeAccountSource: string | null = null
 let allAccounts: ClaudeAccount[] = []
 
@@ -49,7 +57,13 @@ function getActiveAccount(): ClaudeAccount | null {
 }
 
 function getAccountStateFile(): string {
-  return join(homedir(), ".local", "share", "opencode", "claude-account-source.txt")
+  return join(
+    homedir(),
+    ".local",
+    "share",
+    "opencode",
+    "claude-account-source.txt",
+  )
 }
 
 export function loadPersistedAccountSource(): string | null {
@@ -140,7 +154,9 @@ function refreshViaCli(): void {
   }
 }
 
-export function refreshIfNeeded(account?: ClaudeAccount): ClaudeCredentials | null {
+export function refreshIfNeeded(
+  account?: ClaudeAccount,
+): ClaudeCredentials | null {
   const target = account ?? getActiveAccount()
   if (!target) return null
 

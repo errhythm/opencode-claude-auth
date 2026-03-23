@@ -45,7 +45,10 @@ function parseCredentials(raw: string): {
     accessToken: creds.accessToken,
     refreshToken: creds.refreshToken,
     expiresAt: creds.expiresAt,
-    subscriptionType: typeof creds.subscriptionType === "string" ? creds.subscriptionType : undefined,
+    subscriptionType:
+      typeof creds.subscriptionType === "string"
+        ? creds.subscriptionType
+        : undefined,
   }
 }
 
@@ -121,7 +124,11 @@ describe("parseCredentials", () => {
   })
 
   it("subscriptionType is undefined when not present", () => {
-    const raw = JSON.stringify({ accessToken: "at", refreshToken: "rt", expiresAt: 1700000000000 })
+    const raw = JSON.stringify({
+      accessToken: "at",
+      refreshToken: "rt",
+      expiresAt: 1700000000000,
+    })
     const result = parseCredentials(raw)
     assert.ok(result)
     assert.equal(result.subscriptionType, undefined)
@@ -129,25 +136,51 @@ describe("parseCredentials", () => {
 
   it("returns null for MCP-only entries", () => {
     const raw = JSON.stringify({
-      mcpOAuth: { "neon|abc123": { serverName: "neon", accessToken: "some-token", expiresAt: 1700000000000 } },
+      mcpOAuth: {
+        "neon|abc123": {
+          serverName: "neon",
+          accessToken: "some-token",
+          expiresAt: 1700000000000,
+        },
+      },
     })
     assert.equal(parseCredentials(raw), null)
   })
 
   it("returns null for missing accessToken", () => {
-    assert.equal(parseCredentials(JSON.stringify({ refreshToken: "rt", expiresAt: 123 })), null)
+    assert.equal(
+      parseCredentials(JSON.stringify({ refreshToken: "rt", expiresAt: 123 })),
+      null,
+    )
   })
 
   it("returns null for missing refreshToken", () => {
-    assert.equal(parseCredentials(JSON.stringify({ accessToken: "at", expiresAt: 123 })), null)
+    assert.equal(
+      parseCredentials(JSON.stringify({ accessToken: "at", expiresAt: 123 })),
+      null,
+    )
   })
 
   it("returns null for missing expiresAt", () => {
-    assert.equal(parseCredentials(JSON.stringify({ accessToken: "at", refreshToken: "rt" })), null)
+    assert.equal(
+      parseCredentials(
+        JSON.stringify({ accessToken: "at", refreshToken: "rt" }),
+      ),
+      null,
+    )
   })
 
   it("returns null for wrong types", () => {
-    assert.equal(parseCredentials(JSON.stringify({ accessToken: 123, refreshToken: "rt", expiresAt: 456 })), null)
+    assert.equal(
+      parseCredentials(
+        JSON.stringify({
+          accessToken: 123,
+          refreshToken: "rt",
+          expiresAt: 456,
+        }),
+      ),
+      null,
+    )
   })
 
   it("returns null for invalid JSON", () => {
@@ -190,13 +223,22 @@ attributes:
   })
 
   it("puts the primary service first", () => {
-    assert.equal(extractServicesFromDump(SAMPLE_DUMP)[0], "Claude Code-credentials")
+    assert.equal(
+      extractServicesFromDump(SAMPLE_DUMP)[0],
+      "Claude Code-credentials",
+    )
   })
 
   it("deduplicates entries that appear twice (svce and blob line)", () => {
     const services = extractServicesFromDump(SAMPLE_DUMP)
-    assert.equal(services.filter((s) => s === "Claude Code-credentials").length, 1)
-    assert.equal(services.filter((s) => s === "Claude Code-credentials-b28bbb7c").length, 1)
+    assert.equal(
+      services.filter((s) => s === "Claude Code-credentials").length,
+      1,
+    )
+    assert.equal(
+      services.filter((s) => s === "Claude Code-credentials-b28bbb7c").length,
+      1,
+    )
   })
 
   it("ignores non-Claude-Code keychain entries", () => {
@@ -213,11 +255,21 @@ attributes:
   })
 
   it("does not match uppercase hex suffixes", () => {
-    assert.deepEqual(extractServicesFromDump(`"svce"<blob>="Claude Code-credentials-B28BBB7C"`), [])
+    assert.deepEqual(
+      extractServicesFromDump(
+        `"svce"<blob>="Claude Code-credentials-B28BBB7C"`,
+      ),
+      [],
+    )
   })
 
   it("does not match arbitrary word suffixes", () => {
-    assert.deepEqual(extractServicesFromDump(`"svce"<blob>="Claude Code-credentials-myaccount"`), [])
+    assert.deepEqual(
+      extractServicesFromDump(
+        `"svce"<blob>="Claude Code-credentials-myaccount"`,
+      ),
+      [],
+    )
   })
 
   it("handles a dump where primary service appears after suffixed ones", () => {
@@ -245,9 +297,17 @@ attributes:
 })
 
 describe("account labelling", () => {
-  type Creds = { accessToken: string; refreshToken: string; expiresAt: number; subscriptionType?: string }
+  type Creds = {
+    accessToken: string
+    refreshToken: string
+    expiresAt: number
+    subscriptionType?: string
+  }
   const makeCreds = (sub?: string): Creds => ({
-    accessToken: "at", refreshToken: "rt", expiresAt: 9999999999999, subscriptionType: sub,
+    accessToken: "at",
+    refreshToken: "rt",
+    expiresAt: 9999999999999,
+    subscriptionType: sub,
   })
 
   it("uses subscription type as label when available", () => {
@@ -265,17 +325,28 @@ describe("account labelling", () => {
   })
 
   it("deduplicates labels with counter when multiple accounts share a tier", () => {
-    const labels = buildAccountLabels([makeCreds("pro"), makeCreds("pro"), makeCreds("max")])
+    const labels = buildAccountLabels([
+      makeCreds("pro"),
+      makeCreds("pro"),
+      makeCreds("max"),
+    ])
     assert.deepEqual(labels, ["Claude Pro 1", "Claude Pro 2", "Claude Max"])
   })
 
   it("keeps single account of each tier un-numbered", () => {
-    assert.deepEqual(buildAccountLabels([makeCreds("pro"), makeCreds("max")]), ["Claude Pro", "Claude Max"])
+    assert.deepEqual(buildAccountLabels([makeCreds("pro"), makeCreds("max")]), [
+      "Claude Pro",
+      "Claude Max",
+    ])
   })
 
   it("handles three accounts of the same tier", () => {
     assert.deepEqual(
-      buildAccountLabels([makeCreds("pro"), makeCreds("pro"), makeCreds("pro")]),
+      buildAccountLabels([
+        makeCreds("pro"),
+        makeCreds("pro"),
+        makeCreds("pro"),
+      ]),
       ["Claude Pro 1", "Claude Pro 2", "Claude Pro 3"],
     )
   })
@@ -296,15 +367,29 @@ describe("credentials file fallback", () => {
     const credPath = join(tmpDir, ".credentials.json")
     writeFileSync(
       credPath,
-      JSON.stringify({ claudeAiOauth: { accessToken: "file-at", refreshToken: "file-rt", expiresAt: 1700000000000 } }),
+      JSON.stringify({
+        claudeAiOauth: {
+          accessToken: "file-at",
+          refreshToken: "file-rt",
+          expiresAt: 1700000000000,
+        },
+      }),
     )
     const result = readCredentialsFile(credPath)
-    assert.deepEqual(result, { accessToken: "file-at", refreshToken: "file-rt", expiresAt: 1700000000000, subscriptionType: undefined })
+    assert.deepEqual(result, {
+      accessToken: "file-at",
+      refreshToken: "file-rt",
+      expiresAt: 1700000000000,
+      subscriptionType: undefined,
+    })
     rmSync(tmpDir, { recursive: true, force: true })
   })
 
   it("returns null when the file does not exist", () => {
-    assert.equal(readCredentialsFile(join(tmpDir, "nonexistent", ".credentials.json")), null)
+    assert.equal(
+      readCredentialsFile(join(tmpDir, "nonexistent", ".credentials.json")),
+      null,
+    )
   })
 
   it("returns null when the file contains invalid JSON", () => {
@@ -318,7 +403,10 @@ describe("credentials file fallback", () => {
   it("returns null when the file is valid JSON but missing required fields", () => {
     mkdirSync(tmpDir, { recursive: true })
     const credPath = join(tmpDir, ".credentials.json")
-    writeFileSync(credPath, JSON.stringify({ claudeAiOauth: { accessToken: "only-this" } }))
+    writeFileSync(
+      credPath,
+      JSON.stringify({ claudeAiOauth: { accessToken: "only-this" } }),
+    )
     assert.equal(readCredentialsFile(credPath), null)
     rmSync(tmpDir, { recursive: true, force: true })
   })
