@@ -1,8 +1,8 @@
 class OpencodeClaudeAuth < Formula
   desc "OpenCode plugin for Claude Code OAuth authentication"
   homepage "https://github.com/griffinmartin/opencode-claude-auth"
-  url "https://registry.npmjs.org/opencode-claude-auth/-/opencode-claude-auth-1.2.0.tgz"
-  sha256 "4632082b6b6ef86d11408eeef9bf542610135b3a9d02396597e029bb61f25078"
+  url "https://registry.npmjs.org/opencode-claude-auth/-/opencode-claude-auth-1.3.0.tgz"
+  sha256 "ab25d25943d3149d286f9976da3a7236fff9366c5ea2d9aed6bd22b3840d9329"
   license "MIT"
 
   depends_on "node"
