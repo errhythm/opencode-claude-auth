@@ -394,9 +394,7 @@ async function main(): Promise<void> {
 
   const creds = getCachedCredentials()
   if (!creds) {
-    console.error(
-      c.red("Credentials are expired and could not be refreshed."),
-    )
+    console.error(c.red("Credentials are expired and could not be refreshed."))
     process.exit(1)
   }
 
