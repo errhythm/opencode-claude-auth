@@ -11,6 +11,7 @@ import {
   LONG_CONTEXT_BETAS,
 } from "./betas.ts"
 import { transformBody, transformResponseStream } from "./transforms.ts"
+import { applyOpencodeConfig } from "./plugin-config.ts"
 import {
   getCachedCredentials,
   getCredentialsForSync,
@@ -43,6 +44,11 @@ export {
   refreshAccountsList,
   type ClaudeCredentials,
 } from "./credentials.ts"
+export {
+  applyOpencodeConfig,
+  isEnable1mContext,
+  type PluginSettings,
+} from "./plugin-config.ts"
 
 const SYSTEM_IDENTITY_PREFIX =
   "You are Claude Code, Anthropic's official CLI for Claude."
@@ -203,6 +209,9 @@ const plugin: Plugin = async () => {
   syncTimer.unref()
 
   return {
+    config: async (opencodeConfig) => {
+      applyOpencodeConfig(opencodeConfig)
+    },
     "experimental.chat.system.transform": async (input, output) => {
       if (input.model?.providerID !== "anthropic") {
         return
