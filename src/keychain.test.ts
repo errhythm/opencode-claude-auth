@@ -6,6 +6,7 @@ import { join } from "node:path"
 import { tmpdir } from "node:os"
 import {
   buildAccountLabels,
+  keychainSuffixForDir,
   updateCredentialBlob,
   writeBackCredentials,
 } from "./keychain.ts"
@@ -64,7 +65,7 @@ function extractServicesFromDump(output: string): string[] {
   const services: string[] = []
   const seen = new Set<string>()
 
-  const re = /"Claude Code-credentials(?:-[0-9a-f]+)?"/g
+  const re = /"Claude Code-credentials(?:-[0-9a-f]{8})?"/g
   let m = re.exec(output)
   while (m !== null) {
     const svc = m[0].slice(1, -1)
@@ -371,6 +372,49 @@ describe("account labelling", () => {
       ["Claude 1", "Claude Pro", "Claude 2"],
     )
   })
+
+  it("appends email when available", () => {
+    assert.deepEqual(
+      buildAccountLabels([makeAccountCreds("pro")], ["alice@example.com"]),
+      ["Claude Pro: alice@example.com"],
+    )
+  })
+
+  it("leaves labels unchanged when email is missing", () => {
+    assert.deepEqual(buildAccountLabels([makeAccountCreds("pro")], [null]), [
+      "Claude Pro",
+    ])
+  })
+
+  it("appends email after duplicate numbering", () => {
+    assert.deepEqual(
+      buildAccountLabels(
+        [makeAccountCreds("pro"), makeAccountCreds("pro")],
+        ["a@example.com", "b@example.com"],
+      ),
+      ["Claude Pro 1: a@example.com", "Claude Pro 2: b@example.com"],
+    )
+  })
+})
+
+describe("keychainSuffixForDir", () => {
+  it("produces an 8-character hex suffix", () => {
+    assert.match(keychainSuffixForDir("/Users/example/.work"), /^[0-9a-f]{8}$/)
+  })
+
+  it("is stable for the same directory", () => {
+    assert.equal(
+      keychainSuffixForDir("/Users/example/.work"),
+      keychainSuffixForDir("/Users/example/.work"),
+    )
+  })
+
+  it("changes across directories", () => {
+    assert.notEqual(
+      keychainSuffixForDir("/Users/example/.work"),
+      keychainSuffixForDir("/Users/example/.personal"),
+    )
+  })
 })
 
 describe("credentials file fallback", () => {
@@ -627,6 +671,53 @@ describe("writeBackCredentials (file source)", () => {
         expiresAt: 1000,
       })
       assert.equal(result, false)
+    } finally {
+      if (typeof originalHome === "string") {
+        process.env.HOME = originalHome
+      } else {
+        delete process.env.HOME
+      }
+      rmSync(tempHome, { recursive: true, force: true })
+    }
+  })
+
+  it("writes back to a custom config dir when provided", async () => {
+    const originalHome = process.env.HOME
+    const tempHome = await mkdtemp(
+      join(tmpdir(), "opencode-claude-auth-wb-custom-"),
+    )
+    process.env.HOME = tempHome
+
+    try {
+      const configDir = join(tempHome, ".work")
+      mkdirSync(configDir, { recursive: true })
+      const credPath = join(configDir, ".credentials.json")
+      writeFileSync(
+        credPath,
+        JSON.stringify({
+          claudeAiOauth: {
+            accessToken: "old-at",
+            refreshToken: "old-rt",
+            expiresAt: 1000,
+          },
+        }),
+      )
+
+      const result = writeBackCredentials(
+        "file",
+        {
+          accessToken: "new-at",
+          refreshToken: "new-rt",
+          expiresAt: 2000,
+        },
+        configDir,
+      )
+
+      assert.equal(result, true)
+      const written = JSON.parse(readFileSync(credPath, "utf-8"))
+      assert.equal(written.claudeAiOauth.accessToken, "new-at")
+      assert.equal(written.claudeAiOauth.refreshToken, "new-rt")
+      assert.equal(written.claudeAiOauth.expiresAt, 2000)
     } finally {
       if (typeof originalHome === "string") {
         process.env.HOME = originalHome

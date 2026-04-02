@@ -34,6 +34,7 @@ type TestAuthLoader = (
 interface Account {
   label: string
   source: string
+  configDir?: string
   credentials: ClaudeCredentials
 }
 
@@ -50,11 +51,11 @@ function resolveAccount(
 function buildSelectOptions(
   accounts: Account[],
   activeSource: string,
-): Array<{ label: string; value: string; hint: string }> {
+): Array<{ label: string; value: string; hint: string | undefined }> {
   return accounts.map((a) => ({
     label: a.label,
     value: a.source,
-    hint: a.source === activeSource ? `${a.source} (active)` : a.source,
+    hint: a.source === activeSource ? "active" : undefined,
   }))
 }
 
@@ -103,9 +104,14 @@ function refreshIfNeeded(
 // Mirrors the authorize() callback return shape
 function buildAuthorizeResult(account: Account) {
   const creds = account.credentials
+  const sourceDescription =
+    account.source === "file"
+      ? `credentials file (${account.configDir ?? "~/.claude"}/.credentials.json)`
+      : `macOS Keychain (${account.source})`
+
   return {
     url: "",
-    instructions: `Using ${account.label} — credentials loaded from macOS Keychain.`,
+    instructions: `Using ${account.label} — credentials loaded from ${sourceDescription}.`,
     method: "auto" as const,
     async callback() {
       return {
@@ -217,7 +223,7 @@ const accounts: Account[] = [
   },
   {
     label: "Account 3",
-    source: "Claude Code-credentials-abc123",
+    source: "Claude Code-credentials-abc12345",
     credentials: makeCreds({ accessToken: "at-3" }),
   },
 ]
@@ -685,7 +691,7 @@ describe("auth hook — account resolution", () => {
 
   it("selects Account 3 by its source key", () => {
     assert.equal(
-      resolveAccount(accounts, "Claude Code-credentials-abc123").label,
+      resolveAccount(accounts, "Claude Code-credentials-abc12345").label,
       "Account 3",
     )
   })
@@ -731,14 +737,14 @@ describe("auth hook — select prompt options", () => {
     assert.equal(options[1].value, "Claude Code-credentials-b28bbb7c")
   })
 
-  it("marks the active account with (active) in its hint", () => {
+  it("marks only the active account with an active hint", () => {
     const options = buildSelectOptions(
       accounts,
       "Claude Code-credentials-b28bbb7c",
     )
-    assert.ok(options[1].hint.includes("(active)"))
-    assert.ok(!options[0].hint.includes("(active)"))
-    assert.ok(!options[2].hint.includes("(active)"))
+    assert.equal(options[1]?.hint, "active")
+    assert.equal(options[0]?.hint, undefined)
+    assert.equal(options[2]?.hint, undefined)
   })
 
   it("shows no prompts when only one account exists", () => {
@@ -769,6 +775,25 @@ describe("auth hook — authorize callback", () => {
   it("instructions mention the chosen account label", () => {
     assert.ok(
       buildAuthorizeResult(accounts[1]).instructions.includes("Account 2"),
+    )
+  })
+
+  it("instructions include the keychain service for keychain accounts", () => {
+    assert.equal(
+      buildAuthorizeResult(accounts[1]).instructions,
+      "Using Account 2 — credentials loaded from macOS Keychain (Claude Code-credentials-b28bbb7c).",
+    )
+  })
+
+  it("instructions include the config dir for file accounts", () => {
+    assert.equal(
+      buildAuthorizeResult({
+        label: "Account 4",
+        source: "file",
+        configDir: "/tmp/claude-work",
+        credentials: makeCreds(),
+      }).instructions,
+      "Using Account 4 — credentials loaded from credentials file (/tmp/claude-work/.credentials.json).",
     )
   })
 
@@ -929,10 +954,10 @@ describe("account persistence — saveAccountSource / loadPersistedAccountSource
 
   it("overwrites a previously saved source", () => {
     saveAccountSourceTo(stateFile, "Claude Code-credentials")
-    saveAccountSourceTo(stateFile, "Claude Code-credentials-abc123")
+    saveAccountSourceTo(stateFile, "Claude Code-credentials-abc12345")
     assert.equal(
       loadPersistedAccountSourceFrom(stateFile),
-      "Claude Code-credentials-abc123",
+      "Claude Code-credentials-abc12345",
     )
     rmSync(tmp, { recursive: true, force: true })
   })
@@ -959,7 +984,7 @@ describe("startup account selection — uses persisted source", () => {
 
   it("restores Account 3 from persisted source", () => {
     assert.equal(
-      resolveStartupAccount(accounts, "Claude Code-credentials-abc123").label,
+      resolveStartupAccount(accounts, "Claude Code-credentials-abc12345").label,
       "Account 3",
     )
   })
@@ -1006,7 +1031,7 @@ describe("authorize() — immediate syncAuthJson + saveAccountSource", () => {
     mkdirSync(tmp, { recursive: true })
     const stateFile = join(tmp, "claude-account-source.txt")
 
-    saveAccountSourceTo(stateFile, "Claude Code-credentials-abc123")
+    saveAccountSourceTo(stateFile, "Claude Code-credentials-abc12345")
 
     const restored = resolveStartupAccount(
       accounts,

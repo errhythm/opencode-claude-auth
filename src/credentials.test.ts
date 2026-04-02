@@ -173,13 +173,12 @@ describe("credential caching", () => {
     }
   })
 
-  it("refreshIfNeeded updates account credentials in-place after refresh", async () => {
+  it("returns null without mutating the account when refresh cannot proceed", async () => {
     const originalNow = Date.now
-    let now = 1_700_000_000_000
+    const now = 1_700_000_000_000
     Date.now = () => now
 
     try {
-      // Keychain returns fresh creds with 10min expiry
       const { credentialsModule } = await loadCredentialsWithCountingKeychain(
         now + 10 * 60_000,
       )
@@ -189,22 +188,17 @@ describe("credential caching", () => {
         source: "keychain",
         credentials: {
           accessToken: "old-token",
-          refreshToken: "old-refresh",
-          expiresAt: now + 30_000, // expires in 30s, below 60s threshold
+          refreshToken: "",
+          expiresAt: now + 30_000,
         },
       }
 
       credentialsModule.initAccounts([account])
 
-      // First call should trigger refresh (token expiring within 60s)
       const result = credentialsModule.getCachedCredentials()
-      assert.ok(result)
-
-      // The account object's credentials should now be updated in-place
-      assert.ok(
-        account.credentials.expiresAt > now + 60_000,
-        "account.credentials.expiresAt should be updated after refresh",
-      )
+      assert.equal(result, null)
+      assert.equal(account.credentials.accessToken, "old-token")
+      assert.equal(account.credentials.expiresAt, now + 30_000)
     } finally {
       Date.now = originalNow
     }
@@ -215,6 +209,34 @@ describe("credential caching", () => {
       Date.now() + 10 * 60_000,
     )
     assert.equal(credentialsModule.getCachedCredentials(), null)
+  })
+
+  it("does not fall back to source refresh when no refresh token exists", async () => {
+    const originalNow = Date.now
+    const now = 1_700_000_000_000
+    Date.now = () => now
+
+    try {
+      const { credentialsModule, keychainModule } =
+        await loadCredentialsWithCountingKeychain(now + 10 * 60_000)
+
+      credentialsModule.initAccounts([
+        {
+          label: "Account 1",
+          source: "keychain",
+          credentials: {
+            accessToken: "token",
+            refreshToken: "",
+            expiresAt: now + 30_000,
+          },
+        },
+      ])
+
+      assert.equal(credentialsModule.getCachedCredentials(), null)
+      assert.equal(keychainModule.__getReadCount(), 0)
+    } finally {
+      Date.now = originalNow
+    }
   })
 
   it("getCredentialsForSync returns cached credentials without triggering refresh", async () => {

@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from "node:child_process"
+import { execFileSync } from "node:child_process"
 import {
   chmodSync,
   existsSync,
@@ -6,11 +6,10 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs"
-import { homedir, tmpdir } from "node:os"
+import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import {
   readAllClaudeAccounts,
-  refreshAccount,
   writeBackCredentials,
   type ClaudeCredentials,
   type ClaudeAccount,
@@ -242,31 +241,6 @@ export function refreshViaOAuth(
   }
 }
 
-function refreshViaCli(): void {
-  const maxAttempts = 2
-  for (let i = 0; i < maxAttempts; i++) {
-    log("refresh_started", { source: "cli", attempt: i + 1 })
-    try {
-      execSync("claude -p . --model haiku", {
-        timeout: 60_000,
-        encoding: "utf-8",
-        env: { ...process.env, TERM: "dumb" },
-        stdio: "ignore",
-        cwd: tmpdir(),
-      })
-      log("refresh_success", { source: "cli" })
-      return
-    } catch (err) {
-      log("refresh_failed", {
-        source: "cli",
-        attempt: i + 1,
-        error: err instanceof Error ? err.message : String(err),
-      })
-      // Non-fatal: retry once, then give up
-    }
-  }
-}
-
 export function refreshIfNeeded(
   account?: ClaudeAccount,
 ): ClaudeCredentials | null {
@@ -287,24 +261,15 @@ export function refreshIfNeeded(
     const oauthCreds = refreshViaOAuth(creds.refreshToken)
     if (oauthCreds && oauthCreds.expiresAt > Date.now() + 60_000) {
       target.credentials = oauthCreds
-      writeBackCredentials(target.source, oauthCreds)
+      writeBackCredentials(target.source, oauthCreds, target.configDir)
       return oauthCreds
     }
   }
 
-  // Fall back to CLI-based refresh (consumes Haiku tokens)
-  log("refresh_fallback_cli", { source: target.source })
-  refreshViaCli()
-  const refreshed = refreshAccount(target.source)
-  if (refreshed && refreshed.expiresAt > Date.now() + 60_000) {
-    target.credentials = refreshed
-    return refreshed
-  }
-
   log("refresh_exhausted", {
     source: target.source,
-    hadCredentials: !!refreshed,
-    expiresAt: refreshed?.expiresAt,
+    hadCredentials: true,
+    expiresAt: creds.expiresAt,
   })
   return null
 }
