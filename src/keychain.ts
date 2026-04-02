@@ -180,7 +180,9 @@ function readEmailFromConfigDir(configDir: string): string | null {
   const primaryConfigDir = join(homedir(), ".claude")
   const candidates = [
     join(configDir, ".claude.json"),
-    ...(configDir === primaryConfigDir ? [join(homedir(), ".claude.json")] : []),
+    ...(configDir === primaryConfigDir
+      ? [join(homedir(), ".claude.json")]
+      : []),
   ]
 
   for (const path of candidates) {
@@ -283,7 +285,8 @@ export function buildAccountLabels(
 
 export function readAllClaudeAccounts(): ClaudeAccount[] {
   if (process.platform !== "darwin") {
-    const configDir = process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude")
+    const configDir =
+      process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude")
     const creds = readCredentialsFile(configDir)
     if (!creds) return []
     const email = readEmailFromConfigDir(configDir)
@@ -312,7 +315,8 @@ export function readAllClaudeAccounts(): ClaudeAccount[] {
   }
 
   if (rawAccounts.length === 0) {
-    const configDir = process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude")
+    const configDir =
+      process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude")
     const creds = readCredentialsFile(configDir)
     if (!creds) return []
     const email = readEmailFromConfigDir(configDir)
@@ -321,7 +325,9 @@ export function readAllClaudeAccounts(): ClaudeAccount[] {
   }
 
   const suffixSet = new Set(
-    rawAccounts.map((a) => a.suffix).filter((suffix): suffix is string => suffix !== null),
+    rawAccounts
+      .map((a) => a.suffix)
+      .filter((suffix): suffix is string => suffix !== null),
   )
   const suffixToDir = discoverConfigDirsForKeychain(suffixSet)
 
@@ -336,7 +342,9 @@ export function readAllClaudeAccounts(): ClaudeAccount[] {
       configDir: configDir ?? null,
     })
     return {
-      ...account,
+      source: account.source,
+      suffix: account.suffix,
+      credentials: account.credentials,
       configDir,
       email,
     }
