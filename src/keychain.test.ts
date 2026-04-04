@@ -323,7 +323,9 @@ describe("writeBackCredentials (file source)", () => {
     if (process.platform === "win32") return
 
     const originalHome = process.env.HOME
-    const tempHome = await mkdtemp(join(tmpdir(), "opencode-claude-auth-wb-perms-"))
+    const tempHome = await mkdtemp(
+      join(tmpdir(), "opencode-claude-auth-wb-perms-"),
+    )
     process.env.HOME = tempHome
 
     try {
@@ -383,7 +385,10 @@ describe("CLAUDE_CONFIG_DIR support", () => {
     const fakeHome = await mkdtemp(join(tmpdir(), "claude-home-"))
     const defaultDir = join(fakeHome, ".claude")
     mkdirSync(defaultDir, { recursive: true })
-    writeFileSync(join(defaultDir, ".credentials.json"), makeCreds("default-token"))
+    writeFileSync(
+      join(defaultDir, ".credentials.json"),
+      makeCreds("default-token"),
+    )
 
     process.env.HOME = fakeHome
 
@@ -404,7 +409,10 @@ describe("CLAUDE_CONFIG_DIR support", () => {
   it("uses CLAUDE_CONFIG_DIR when set to a custom path", async () => {
     const customDir = await mkdtemp(join(tmpdir(), "claude-custom-"))
     mkdirSync(customDir, { recursive: true })
-    writeFileSync(join(customDir, ".credentials.json"), makeCreds("custom-token"))
+    writeFileSync(
+      join(customDir, ".credentials.json"),
+      makeCreds("custom-token"),
+    )
 
     process.env.CLAUDE_CONFIG_DIR = customDir
 
