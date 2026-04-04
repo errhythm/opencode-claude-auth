@@ -255,6 +255,7 @@ function discoverConfigDirsForKeychain(
 export function buildAccountLabels(
   credsList: ClaudeCredentials[],
   emails?: (string | null)[],
+  sources?: (string | null)[],
 ): string[] {
   const baseLabels = credsList.map((c) => {
     if (c.subscriptionType) {
@@ -279,7 +280,9 @@ export function buildAccountLabels(
       label = `${base} ${n}`
     }
     const email = emails?.[i]
-    return email ? `${label}: ${email}` : label
+    if (email) return `${label}: ${email}`
+    const source = sources?.[i]
+    return source ? `${label}: ${source}` : label
   })
 }
 
@@ -290,7 +293,7 @@ export function readAllClaudeAccounts(): ClaudeAccount[] {
     const creds = readCredentialsFile(configDir)
     if (!creds) return []
     const email = readEmailFromConfigDir(configDir)
-    const [label] = buildAccountLabels([creds], [email])
+    const [label] = buildAccountLabels([creds], [email], ["file"])
     return [{ label, source: "file", configDir, credentials: creds }]
   }
 
@@ -320,7 +323,7 @@ export function readAllClaudeAccounts(): ClaudeAccount[] {
     const creds = readCredentialsFile(configDir)
     if (!creds) return []
     const email = readEmailFromConfigDir(configDir)
-    const [label] = buildAccountLabels([creds], [email])
+    const [label] = buildAccountLabels([creds], [email], ["file"])
     return [{ label, source: "file", configDir, credentials: creds }]
   }
 
@@ -351,6 +354,7 @@ export function readAllClaudeAccounts(): ClaudeAccount[] {
   const labels = buildAccountLabels(
     resolved.map((a) => a.credentials),
     resolved.map((a) => a.email),
+    resolved.map((a) => a.source),
   )
 
   return resolved.map((a, i) => {

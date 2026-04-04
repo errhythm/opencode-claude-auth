@@ -300,7 +300,9 @@ const plugin: Plugin = async () => {
             const body = transformBody(requestInit.body)
 
             const headerKeys: string[] = []
-            headers.forEach((_, key) => headerKeys.push(key))
+            headers.forEach((_, key) => {
+              headerKeys.push(key)
+            })
             const betas = (headers.get("anthropic-beta") ?? "")
               .split(",")
               .filter(Boolean)
@@ -436,10 +438,7 @@ const plugin: Plugin = async () => {
                 options: currentAccounts.map((a) => ({
                   label: a.label,
                   value: a.source,
-                  hint:
-                    a.source === currentSource
-                      ? `${a.source} (active)`
-                      : a.source,
+                  hint: a.source === currentSource ? "active" : undefined,
                 })),
               },
             ]
